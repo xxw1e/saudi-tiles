@@ -1,1 +1,53 @@
+name: Build Saudi tiles
+on: workflow_dispatch
 
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Vector map (Planetiler, OpenMapTiles schema)
+        run: |
+          curl -fL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
+          java -Xmx6g -jar planetiler.jar --download \
+            --osm-url=https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf \
+            --bounds=34.4,15.5,56.0,32.4 \
+            --output=saudi.mbtiles --force
+
+      - name: Terrain (elevation tiles)
+        run: python3 scripts/make_dem.py
+
+      - name: Fonts (glyphs)
+        run: |
+          mkdir -p glyphs/OpenSans
+          for s in $(seq 0 256 65280); do
+            e=$((s+255))
+            curl -sfL "https://demotiles.maplibre.org/font/Open%20Sans%20Regular,Arial%20Unicode%20MS%20Regular/$s-$e.pbf" -o "glyphs/OpenSans/$s-$e.pbf" \
+            || curl -sfL "https://demotiles.maplibre.org/font/Open%20Sans%20Regular/$s-$e.pbf" -o "glyphs/OpenSans/$s-$e.pbf" \
+            || echo "missing $s-$e"
+          done
+          ls glyphs/OpenSans | wc -l
+          (cd glyphs && zip -qr ../glyphs.zip OpenSans)
+
+      - name: Sizes
+        run: ls -lh saudi.mbtiles terrain.mbtiles glyphs.zip
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tiles
+          name: Saudi tiles
+          files: |
+            saudi.mbtiles
+            terrain.mbtiles
+            glyphs.zip
