@@ -1,5 +1,7 @@
 name: Build Saudi tiles
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,7 +18,7 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Vector map (Planetiler, OpenMapTiles schema)
+      - name: Vector map
         run: |
           curl -fL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
           java -Xmx6g -jar planetiler.jar --download \
@@ -24,10 +26,10 @@ jobs:
             --bounds=34.4,15.5,56.0,32.4 \
             --output=saudi.mbtiles --force
 
-      - name: Terrain (elevation tiles)
+      - name: Terrain
         run: python3 scripts/make_dem.py
 
-      - name: Fonts (glyphs)
+      - name: Fonts
         run: |
           mkdir -p glyphs/OpenSans
           for s in $(seq 0 256 65280); do
